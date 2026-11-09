@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GoogleAdsCampaignOperation",
+  "description": "Google Ads API REST v17 Campaign:mutate payload",
+  "type": "object",
+  "required": ["operations"],
+  "properties": {
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["create"],
+        "properties": {
+          "create": {
+            "type": "object",
+            "required": ["name", "status", "advertisingChannelType", "campaignBudget"],
+            "properties": {
+              "name": { "type": "string" },
+              "status": { "type": "string", "enum": ["PAUSED", "ENABLED"] },
+              "advertisingChannelType": { "type": "string", "enum": ["SEARCH"] },
+              "campaignBudget": { "type": "string", "pattern": "^customers/[0-9]+/campaignBudgets/[0-9]+$" },
+              "manualCpc": {
+                "type": "object",
+                "properties": {
+                  "enhancedCpcEnabled": { "type": "boolean" }
+                }
+              },
+              "networkSettings": {
+                "type": "object",
+                "properties": {
+                  "targetGoogleSearch": { "type": "boolean" },
+                  "targetSearchNetwork": { "type": "boolean" },
+                  "targetContentNetwork": { "type": "boolean" },
+                  "targetPartnerSearchNetwork": { "type": "boolean" }
+                }
+              },
+              "geoTargetTypeSetting": {
+                "type": "object",
+                "properties": {
+                  "positiveGeoTargetType": { "type": "string", "enum": ["PRESENCE", "SEARCH_INTEREST", "PRESENCE_OR_INTEREST"] },
+                  "negativeGeoTargetType": { "type": "string", "enum": ["PRESENCE", "PRESENCE_OR_INTEREST"] }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,37 @@
+# NextBillion ICP 2: Fleet Managers & Operations Leaders (Route Planner / Route Optimization Software)
+id: "fleet-managers"
+name: "Fleet Managers & Ground Operations Leaders"
+target_persona: "Fleet Managers, VP Operations, Dispatch Operations Heads, Logistics Directors"
+product_line: "Route Planner & Route Optimization Turnkey Software"
+target_region:
+  baseline: "IN"
+  expandable: ["IN", "US", "GB", "DE"]
+target_language: "en"
+industries:
+  - "On-ground operations teams responsible for planning & optimizing routes"
+  - "Last-mile courier and delivery operations"
+  - "Commercial waste collection fleets"
+  - "Field service dispatch & technical maintenance"
+  - "NEMT patient transit fleets"
+  - "Heavy trucking & freight fleets"
+company_size_signal:
+  min_employees: 500 # Scoring signal, not hard exclusion filter
+  weight: 0.75
+pain_points:
+  - "Time-consuming manual route scheduling via spreadsheets prone to human error"
+  - "High fuel expenditure and unnecessary mileage driven by fleet vehicles"
+  - "Driver overtime expenses and missed SLA arrival time windows"
+  - "Inability to dynamically re-optimize routes when cancellations or traffic delays occur"
+value_propositions:
+  - "Cut total fleet fuel costs by 15% to 25%"
+  - "Reduce planning and dispatch time from hours to minutes"
+  - "Dynamic real-time traffic-aware re-routing and live driver tracking"
+  - "Built-in vehicle capacity, time-window constraints, and proof of delivery"
+seed_keywords:
+  - "route planner software for delivery"
+  - "fleet route optimization software"
+  - "delivery route planning app for business"
+  - "last mile dispatch software"
+  - "commercial fleet routing solution"
+  - "multi stop route planner enterprise"
+

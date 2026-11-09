@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GoogleAdsCampaignBudgetOperation",
+  "description": "Google Ads API REST v17 CampaignBudget:mutate payload",
+  "type": "object",
+  "required": ["operations"],
+  "properties": {
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["create"],
+        "properties": {
+          "create": {
+            "type": "object",
+            "required": ["name", "amountMicros", "deliveryMethod"],
+            "properties": {
+              "name": { "type": "string" },
+              "amountMicros": { "type": "string", "pattern": "^[0-9]+$" },
+              "deliveryMethod": { "type": "string", "enum": ["STANDARD", "ACCELERATED"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

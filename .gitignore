@@ -1,0 +1,25 @@
+# Root .gitignore
+node_modules/
+**/node_modules/
+dist/
+build/
+.env
+.env.local
+.env.*
+!.env.example
+.expo/
+.openmuse/
+.openmuse-poc/
+.openmuse-poc-local/
+*.tsbuildinfo
+artifacts/
+.playwright-mcp/
+.agents/
+__pycache__/
+*.pyc
+.openviking/
+apps/mobile/ios/
+apps/mobile/android/
+.DS_Store
+
+

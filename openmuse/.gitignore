@@ -1,0 +1,22 @@
+node_modules/
+.expo/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+.openmuse/
+.openmuse-poc/
+.openmuse-poc-local/
+apps/mobile/ios/
+apps/mobile/android/
+.DS_Store
+*.tsbuildinfo
+artifacts/
+
+# Added by CopilotKit CLI: credential files, which must never be committed.
+.env.*
+!.env.example
+
+# Added by CopilotKit CLI: browser snapshots a coding agent writes.
+.playwright-mcp/

@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GoogleAdsCampaignCriteriaNegativeKeywordOperation",
+  "description": "Google Ads API REST v17 CampaignCriterion:mutate payload for Negative Keywords",
+  "type": "object",
+  "required": ["operations"],
+  "properties": {
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["create"],
+        "properties": {
+          "create": {
+            "type": "object",
+            "required": ["campaign", "negative", "keyword"],
+            "properties": {
+              "campaign": { "type": "string", "pattern": "^customers/[0-9]+/campaigns/[0-9]+$" },
+              "negative": { "type": "boolean", "enum": [true] },
+              "keyword": {
+                "type": "object",
+                "required": ["text", "matchType"],
+                "properties": {
+                  "text": { "type": "string" },
+                  "matchType": { "type": "string", "enum": ["EXACT", "PHRASE", "BROAD"] }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

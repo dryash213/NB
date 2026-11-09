@@ -1,0 +1,39 @@
+# NextBillion ICP 1: Product & Tech Leaders (API & SDK Products)
+id: "tech-leaders"
+name: "Product & Engineering Leaders"
+target_persona: "Product Managers, Head of Engineering, CTO, VP Engineering, Lead Architect"
+product_line: "Spatial Data, Routing Engine, Distance Matrix, Navigation SDKs & APIs"
+target_region:
+  baseline: "IN"
+  expandable: ["IN", "US", "GB", "DE"]
+target_language: "en"
+industries:
+  - "B2B SaaS Software platforms of TMS (Transportation Management Systems)"
+  - "Fleet management platforms"
+  - "Last-mile delivery platforms"
+  - "Waste collection software"
+  - "Field service management"
+  - "NEMT (Non-Emergency Medical Transportation)"
+  - "Trucking logistics platforms"
+company_size_signal:
+  min_employees: 500 # Scoring signal, not hard exclusion filter
+  weight: 0.8
+pain_points:
+  - "Exorbitant and unpredictable API pricing from legacy hyperscalers (Google Maps Platform, HERE, TomTom)"
+  - "High latency in real-time route calculations affecting dispatch performance"
+  - "Rigid, proprietary map data preventing custom road restrictions and truck routing parameters"
+  - "Lack of dedicated enterprise support and technical customization"
+value_propositions:
+  - "Predictable, up to 70% lower API cost compared to Google Maps Platform"
+  - "Sub-100ms routing and distance matrix response times"
+  - "Custom map data integration, truck attribute constraints, and tailored speed profiles"
+  - "Enterprise SLA with dedicated engineering support"
+seed_keywords:
+  - "route optimization api"
+  - "distance matrix api alternative"
+  - "fleet routing api for developers"
+  - "truck routing api"
+  - "google cloud fleet routing alternative"
+  - "mapbox routing alternative"
+  - "logistics map api"
+
