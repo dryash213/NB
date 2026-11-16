@@ -140,6 +140,10 @@ export const proposalSchema = z.discriminatedUnion("kind", [
     kind: z.literal("calendar.delete"),
     data: z.object({ calendarId: z.string(), eventId: z.string().min(1), title: z.string() }),
   }),
+  z.object({
+    kind: z.literal("marketing.review"),
+    data: z.record(z.string(), z.unknown()),
+  }),
 ]);
 export type EmailDraft = z.infer<typeof emailDraftSchema>;
 export type EventDraft = z.infer<typeof eventDraftSchema>;

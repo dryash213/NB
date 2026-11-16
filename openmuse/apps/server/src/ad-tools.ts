@@ -1,21 +1,30 @@
 import { z } from "zod";
 
+export const supportedPersonas = [
+  "tech-leaders",
+  "fleet-managers",
+  "students-teachers",
+  "b2b-procurement",
+  "educators-students",
+  "decision-makers",
+] as const;
+
 export const keywordResearchInputSchema = z.object({
   seed_terms: z.array(z.string().trim().min(1).max(200)).min(1).max(10),
   target_region: z.string().trim().default("IN"),
   target_language: z.string().trim().default("en"),
   max_cpc: z.number().positive().default(20),
-  icp_persona: z.enum(["tech-leaders", "fleet-managers"]).default("tech-leaders"),
+  icp_persona: z.enum(supportedPersonas).default("tech-leaders"),
 });
 
 export const competitorAnalysisInputSchema = z.object({
   product_domain: z.string().trim().min(1).max(200),
   competitor_names: z.array(z.string().trim().min(1).max(100)).min(1).max(5),
-  target_persona: z.enum(["tech-leaders", "fleet-managers"]).default("tech-leaders"),
+  target_persona: z.enum(supportedPersonas).default("tech-leaders"),
 });
 
 export const adCopyGeneratorInputSchema = z.object({
-  icp_persona: z.enum(["tech-leaders", "fleet-managers"]),
+  icp_persona: z.enum(supportedPersonas).default("tech-leaders"),
   primary_keyword: z.string().trim().min(1).max(100),
   final_url: z.string().url().default("https://nextbillion.ai/route-optimization"),
   customer_id: z.string().trim().default("1234567890"),
@@ -120,15 +129,33 @@ export function performKeywordResearch(
     });
   }
 
-  // Common negative patterns from the NextBillion guidelines
+  // Domain-aware negative keyword patterns
   negatives.add("free");
   negatives.add("open source");
   negatives.add("github");
-  negatives.add("aaa route planner");
-  negatives.add("mapquest");
-  negatives.add("bus routing software");
-  negatives.add("load boards");
-  negatives.add("python tutorial");
+  
+  const anyTerm = input.seed_terms.join(" ").toLowerCase();
+  const isEducation = anyTerm.includes("mock") || anyTerm.includes("test") || anyTerm.includes("cbse") || anyTerm.includes("exam") || anyTerm.includes("paper") || input.icp_persona.includes("student") || input.icp_persona.includes("teacher");
+  const isRouting = !isEducation && (anyTerm.includes("route") || anyTerm.includes("fleet") || anyTerm.includes("truck") || anyTerm.includes("matrix") || input.icp_persona === "fleet-managers");
+
+  if (isRouting) {
+    negatives.add("aaa route planner");
+    negatives.add("mapquest");
+    negatives.add("bus routing software");
+    negatives.add("load boards");
+    negatives.add("python tutorial");
+  } else if (isEducation) {
+    negatives.add("leak");
+    negatives.add("cheat sheet");
+    negatives.add("pirated");
+    negatives.add("hacked");
+    negatives.add("free pdf download");
+    negatives.add("torrent");
+  } else {
+    negatives.add("cracked");
+    negatives.add("torrent");
+    negatives.add("tutorial");
+  }
 
   return {
     target_region: input.target_region,
@@ -182,24 +209,77 @@ export function performCompetitorAnalysis(
           "High-throughput matrix calculations supporting complex enterprise vehicle constraints.",
       };
     }
+    const isEducation =
+      lower.includes("vedantu") ||
+      lower.includes("byju") ||
+      lower.includes("allen") ||
+      lower.includes("unacademy") ||
+      input.product_domain.toLowerCase().includes("cbse") ||
+      input.product_domain.toLowerCase().includes("test");
+
+    if (isEducation) {
+      return {
+        name,
+        core_promise: "Static question banks and legacy recorded lecture modules.",
+        vulnerabilities: [
+          "Rigid, pre-made question sets without AI customization for specific school patterns",
+          "Expensive enterprise packages with high barrier to entry for individual teachers",
+          "Lack of instant diagnostic grading and automated score improvement analytics",
+        ],
+        nextbillion_counter_angle:
+          "Instant, AI-generated curriculum-aligned CBSE mock tests with granular student performance insights.",
+      };
+    }
+
+    const isRouting =
+      input.target_persona === "fleet-managers" ||
+      input.product_domain.toLowerCase().includes("route") ||
+      input.product_domain.toLowerCase().includes("fleet") ||
+      input.product_domain.toLowerCase().includes("truck");
+
+    if (isRouting) {
+      return {
+        name,
+        core_promise: "Standard turnkey fleet routing and dispatch tool.",
+        vulnerabilities: [
+          "Rigid off-the-shelf software with poor API integration for custom TMS",
+          "Limited scalability beyond small-to-medium fleets",
+        ],
+        nextbillion_counter_angle: isTech
+          ? "Headless spatial infrastructure that integrates directly into your existing TMS platform."
+          : "Enterprise-scale fleet planner handling 500+ vehicle fleets with dynamic re-optimization.",
+      };
+    }
+
     return {
       name,
-      core_promise: "Standard turnkey fleet routing and dispatch tool.",
+      core_promise: "Standard legacy alternative or manual process.",
       vulnerabilities: [
-        "Rigid off-the-shelf software with poor API integration for custom TMS",
-        "Limited scalability beyond small-to-medium fleets",
+        "Time-consuming manual effort and outdated features",
+        "Higher cost with poor scalability and lack of modern automation",
       ],
-      nextbillion_counter_angle: isTech
-        ? "Headless spatial infrastructure that integrates directly into your existing TMS platform."
-        : "Enterprise-scale fleet planner handling 500+ vehicle fleets with dynamic re-optimization.",
+      nextbillion_counter_angle:
+        "Automated, cost-effective solution delivering instant results and verified performance.",
     };
   });
+
+  const isEduDomain =
+    input.target_persona === "students-teachers" ||
+    input.target_persona === "educators-students" ||
+    input.product_domain.toLowerCase().includes("cbse") ||
+    input.product_domain.toLowerCase().includes("test");
 
   return {
     product_domain: input.product_domain,
     target_persona: input.target_persona,
     competitor_profiles: profiles,
-    recommended_ad_angles: isTech
+    recommended_ad_angles: isEduDomain
+      ? [
+          "Curriculum Alignment: 100% CBSE-pattern syllabus mock tests generated in seconds.",
+          "Score Improvement: Granular diagnostic insights pinpointing weak chapters.",
+          "Teacher Productivity: Instant automated test paper creation with full answer keys.",
+        ]
+      : isTech
       ? [
           "Cost Benchmark: Compare your Google Maps API invoice against NextBillion.",
           "Performance: Sub-100ms Routing API for high-frequency dispatch.",

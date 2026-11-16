@@ -643,6 +643,16 @@ function ReviewDetail({ initial }: { initial: ActionProposal }) {
               <Text style={s.muted}>No attachments</Text>
             )}
           </>
+        ) : action.kind === "marketing.review" ? (
+          <>
+            {Object.entries(d).map(([k, v]) => (
+              <ReviewLine
+                key={k}
+                label={k.replace(/_/g, " ")}
+                value={typeof v === "object" ? JSON.stringify(v) : String(v ?? "")}
+              />
+            ))}
+          </>
         ) : (
           <>
             <ReviewLine label="Event" value={String(d.title || "")} />

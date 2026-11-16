@@ -295,7 +295,7 @@ export async function createBrowserManager(
         void serial(id, () => closeSession(id)).catch(() => {});
       }
   }, 60_000);
-  sweeper.unref();
+  (sweeper as any).unref();
   return {
     list: () => [...sessions.values()],
     create: (id: string, url: string) =>

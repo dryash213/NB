@@ -1,5 +1,6 @@
+import { existsSync, readdirSync, rmSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
 import { backgroundFailure } from "./log.ts";
@@ -181,6 +182,19 @@ export function createPool(connectionString: string) {
   return pool;
 }
 
+function cleanCorruptedDataDir(dir: string): void {
+  try {
+    rmSync(dir, { recursive: true, force: true });
+  } catch {
+    try {
+      const entries = readdirSync(dir);
+      for (const entry of entries) {
+        rmSync(join(dir, entry), { recursive: true, force: true });
+      }
+    } catch {}
+  }
+}
+
 export async function createStore(
   options: { dataDir?: string; databaseUrl?: string } = {},
 ): Promise<Store> {
@@ -189,9 +203,32 @@ export async function createStore(
     const pool = createPool(options.databaseUrl);
     database = { query: async (sql, params) => pool.query(sql, params), close: () => pool.end() };
   } else {
-    if (options.dataDir) await mkdir(dirname(options.dataDir), { recursive: true, mode: 0o700 });
-    const embedded = new PGlite(options.dataDir);
-    await embedded.waitReady;
+    let embedded: PGlite;
+    if (options.dataDir) {
+      await mkdir(options.dataDir, { recursive: true, mode: 0o700 });
+      // Remove stale lock file if left over from an abrupt termination
+      const pidPath = join(options.dataDir, "postmaster.pid");
+      try {
+        if (existsSync(pidPath)) {
+          rmSync(pidPath, { force: true });
+        }
+      } catch {}
+      try {
+        embedded = new PGlite(options.dataDir);
+        await embedded.waitReady;
+      } catch (err) {
+        console.warn(
+          `[OpenMuse] Embedded database at ${options.dataDir} failed to start (${err instanceof Error ? err.message : String(err)}). Reinitializing fresh database...`,
+        );
+        cleanCorruptedDataDir(options.dataDir);
+        await mkdir(options.dataDir, { recursive: true, mode: 0o700 });
+        embedded = new PGlite(options.dataDir);
+        await embedded.waitReady;
+      }
+    } else {
+      embedded = new PGlite();
+      await embedded.waitReady;
+    }
     database = {
       query: (sql, params) => embedded.query<Row>(sql, params),
       close: () => embedded.close(),

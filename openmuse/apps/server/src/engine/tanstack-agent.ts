@@ -16,9 +16,10 @@ import {
 import { type AnthropicChatModel, anthropicText } from "@tanstack/ai-anthropic";
 import { type GeminiTextModel, geminiText } from "@tanstack/ai-gemini";
 import { type OpenAIChatModel, openaiChatCompletions, openaiText } from "@tanstack/ai-openai";
-import { map, mergeMap, type Observable } from "rxjs";
+import { finalize, map, mergeMap, tap, type Observable } from "rxjs";
 import { z } from "zod";
 import { MODEL_MAX_RETRIES } from "../config.ts";
+import { getLangfuseTracer, type SafeSpan } from "./langfuse.ts";
 
 let geminiKeyIndex = 0;
 export function getNextGeminiKey(): string {
@@ -128,16 +129,35 @@ const stateTools = [
 
 function sanitizeGeminiMessages(messages: any[]): any[] {
   // Preserve structured tool calls and tool result messages cleanly without string flattening.
-  // For Gemini thinking models that validate thought signature metadata, ensure metadata is present.
+  const cache = (globalThis as any).__thoughtSignatureCache as Map<string, string> | undefined;
   return messages.map((msg) => {
     if (msg.role === "assistant" && Array.isArray(msg.toolCalls)) {
-      const sanitizedCalls = msg.toolCalls.map((tc: any) => ({
-        ...tc,
-        metadata: {
-          ...tc.metadata,
-          thoughtSignature: tc.metadata?.thoughtSignature || "verified",
-        },
-      }));
+      const sanitizedCalls = msg.toolCalls.map((tc: any) => {
+        const fnName = tc.function?.name || tc.name || "";
+        const cleanName = fnName.replace(/^default_api:/, "");
+        const prefixedName = `default_api:${cleanName}`;
+        const sig =
+          tc.metadata?.thoughtSignature ||
+          tc.metadata?.thought_signature ||
+          tc.thoughtSignature ||
+          tc.thought_signature ||
+          cache?.get(tc.id) ||
+          cache?.get(fnName) ||
+          cache?.get(cleanName) ||
+          cache?.get(prefixedName) ||
+          (cache && cache.size > 0 ? Array.from(cache.values())[cache.size - 1] : undefined);
+        if (!sig) return tc;
+        return {
+          ...tc,
+          thoughtSignature: sig,
+          thought_signature: sig,
+          metadata: {
+            ...tc.metadata,
+            thoughtSignature: sig,
+            thought_signature: sig,
+          },
+        };
+      });
       return { ...msg, toolCalls: sanitizedCalls };
     }
     return msg;
@@ -171,8 +191,8 @@ export function tanstackAgent(options: {
         !(typeof input.state === "object" && Object.keys(input.state).length === 0)
       )
         system += `\n## Application State\nThis is state from the application that you can edit by calling AGUISendStateSnapshot or AGUISendStateDelta.\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\`\n`;
-      const isGeminiThinking = /gemini.*thinking|thinking.*gemini/i.test(options.model);
-      const messages = isGeminiThinking
+      const isGemini = /gemini|google/i.test(options.model);
+      const messages = isGemini
         ? sanitizeGeminiMessages(converted.messages)
         : converted.messages;
       return chat({
@@ -197,10 +217,151 @@ export function tanstackAgent(options: {
   });
   const run = agent.run.bind(agent);
   agent.run = (input: RunAgentInput) => {
-    const events = splitTextAtToolCalls(run(input)).pipe(map(textOnlyToolResult));
-    return options.stepLimitNote
-      ? reportStepLimit(events, options.maxSteps, options.stepLimitNote)
-      : events;
+    const rawEvents = splitTextAtToolCalls(run(input)).pipe(map(textOnlyToolResult));
+    const events = options.stepLimitNote
+      ? reportStepLimit(rawEvents, options.maxSteps, options.stepLimitNote)
+      : rawEvents;
+
+    const tracer = getLangfuseTracer();
+    const startTime = Date.now();
+    const toolNames = options.tools.map((t) => t.name);
+
+    const trace = tracer.createTrace({
+      id: input.runId,
+      sessionId: input.threadId,
+      name: "openmuse-tanstack-agent",
+      metadata: {
+        model: options.model,
+        maxSteps: options.maxSteps,
+        tools: toolNames,
+      },
+      input: {
+        prompt: options.prompt,
+        messages: input.messages,
+        context: input.context,
+        state: input.state,
+      },
+    });
+
+    const generation = trace.generation({
+      name: "tanstack-agent-turn",
+      model: options.model,
+      startTime: new Date(startTime),
+      input: {
+        prompt: options.prompt,
+        messages: input.messages,
+      },
+      metadata: {
+        maxSteps: options.maxSteps,
+        tools: toolNames,
+      },
+    });
+
+    const toolSpans = new Map<string, SafeSpan>();
+    let accumulatedText = "";
+    let isFinalized = false;
+
+    const completeTrace = (status: "SUCCESS" | "FINISHED" | "ERROR", errorMessage?: string) => {
+      if (isFinalized) return;
+      isFinalized = true;
+      const endTime = Date.now();
+      const latencyMs = endTime - startTime;
+
+      for (const [, span] of toolSpans) {
+        span.end({
+          endTime: new Date(endTime),
+          level: status === "ERROR" ? "ERROR" : "WARNING",
+          statusMessage: errorMessage || "Stream ended before tool result",
+        });
+      }
+      toolSpans.clear();
+
+      if (status === "ERROR") {
+        generation.end({
+          output: accumulatedText,
+          endTime: new Date(endTime),
+          level: "ERROR",
+          statusMessage: errorMessage || "Agent run encountered an error",
+          metadata: { latencyMs, status: "ERROR" },
+        });
+        trace.update({
+          output: accumulatedText,
+          metadata: {
+            latencyMs,
+            status: "ERROR",
+            errorMessage: errorMessage || "Unknown error",
+          },
+        });
+      } else {
+        generation.end({
+          output: accumulatedText,
+          endTime: new Date(endTime),
+          metadata: { latencyMs, status },
+        });
+        trace.update({
+          output: accumulatedText,
+          metadata: { latencyMs, status },
+        });
+      }
+
+      tracer.flushAsync().catch(() => {});
+    };
+
+    return events.pipe(
+      tap({
+        next: (event) => {
+          try {
+            if (event.type === EventType.TOOL_CALL_START) {
+              const startEvent = event as any;
+              const toolCallId = startEvent.toolCallId || randomUUID();
+              const span = trace.span({
+                name: `tool:${startEvent.toolCallName || "tool"}`,
+                startTime: new Date(),
+                input: {
+                  toolCallId,
+                  toolCallName: startEvent.toolCallName,
+                  parentMessageId: startEvent.parentMessageId,
+                },
+              });
+              toolSpans.set(toolCallId, span);
+            } else if (event.type === EventType.TOOL_CALL_RESULT) {
+              const resEvent = event as any;
+              const toolCallId = resEvent.toolCallId;
+              if (toolCallId && toolSpans.has(toolCallId)) {
+                const span = toolSpans.get(toolCallId);
+                span?.end({
+                  output: resEvent.content,
+                  endTime: new Date(),
+                });
+                toolSpans.delete(toolCallId);
+              }
+            } else if (event.type === EventType.TEXT_MESSAGE_CHUNK) {
+              const chunk = (event as any).delta;
+              if (typeof chunk === "string") {
+                accumulatedText += chunk;
+              }
+            } else if (event.type === EventType.RUN_FINISHED) {
+              completeTrace("FINISHED");
+            } else if (event.type === EventType.RUN_ERROR) {
+              const errEvent = event as any;
+              completeTrace("ERROR", errEvent.message || "Run error event received");
+            }
+          } catch {
+            // Guard against any telemetry errors
+          }
+        },
+        error: (err) => {
+          try {
+            completeTrace("ERROR", err instanceof Error ? err.message : String(err));
+          } catch {}
+        },
+      }),
+      finalize(() => {
+        try {
+          completeTrace("SUCCESS");
+        } catch {}
+      }),
+    );
   };
   return agent;
 }

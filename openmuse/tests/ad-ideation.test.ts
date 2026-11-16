@@ -168,3 +168,87 @@ test("ad-ideation: performCreativeIdeation executes multi-step pipeline with tra
   assert.equal(toolResult.angles_generated.length, 3);
   assert.ok(toolResult.multi_step_trace);
 });
+
+test("ad-ideation: performCreativeIdeation produces domain-specific CBSE mock test copy with zero fleet mentions", async () => {
+  const input = {
+    icp_persona: "students-teachers" as any,
+    primary_keyword: "CBSE mock test generator",
+    final_url: "https://papershapers.in",
+    customer_id: "1234567890",
+    ad_group_id: "9876543210",
+    desired_angles_count: 3,
+    target_region: "IN",
+    target_language: "en",
+  };
+
+  const result = await performCreativeIdeation(input);
+
+  assert.equal(result.summary.validation_status, "PASSED");
+  assert.equal(result.summary.total_variations, 3);
+
+  // Check competitor analysis targeted education competitors
+  const competitors = result.multi_step_trace.competitor_analysis.primary_competitors;
+  assert.ok(competitors.some((c) => c.includes("Vedantu") || c.includes("Byju")));
+
+  // Verify each variation has 0 fleet/fuel strings and matches CBSE/mock test
+  for (const v of result.angles_generated) {
+    const rsa = v.google_ads_rsa_payload.operations[0].create.ad.responsiveSearchAd;
+    const headlineTexts = rsa.headlines.map((h: any) => h.text.toLowerCase());
+    const descTexts = rsa.descriptions.map((d: any) => d.text.toLowerCase());
+    const combined = [...headlineTexts, ...descTexts].join(" ");
+
+    assert.ok(!combined.includes("fleet"), "Must not include fleet");
+    assert.ok(!combined.includes("fuel"), "Must not include fuel");
+    assert.ok(!combined.includes("overtime"), "Must not include overtime");
+    assert.ok(!combined.includes("driver"), "Must not include driver");
+    assert.ok(!combined.includes("dispatch"), "Must not include dispatch");
+    assert.ok(!combined.includes("tms"), "Must not include tms");
+
+    // Must include education keywords
+    assert.ok(
+      combined.includes("cbse") ||
+      combined.includes("mock") ||
+      combined.includes("test") ||
+      combined.includes("exam") ||
+      combined.includes("paper"),
+      "Must include education/mock test keywords"
+    );
+  }
+});
+
+test("ad-ideation: performCreativeIdeation produces domain-specific Neon Serverless Postgres copy with zero map/routing mentions", async () => {
+  const result = await performCreativeIdeation({
+    icp_persona: "decision-makers",
+    primary_keyword: "serverless postgres api",
+    final_url: "https://neon.tech",
+    desired_angles_count: 2,
+    target_region: "IN",
+    target_language: "en",
+  });
+
+  assert.equal(result.angles_generated.length, 2);
+
+  for (const v of result.angles_generated) {
+    const rsa = v.google_ads_rsa_payload.operations[0].create.ad.responsiveSearchAd;
+    const headlineTexts = rsa.headlines.map((h: any) => h.text.toLowerCase());
+    const descTexts = rsa.descriptions.map((d: any) => d.text.toLowerCase());
+    const combined = [...headlineTexts, ...descTexts].join(" ");
+
+    assert.ok(!combined.includes("google maps"), "Must not include google maps");
+    assert.ok(!combined.includes("route engine"), "Must not include route engine");
+    assert.ok(!combined.includes("distance matrix"), "Must not include distance matrix");
+    assert.ok(!combined.includes("truck"), "Must not include truck");
+    assert.ok(!combined.includes("fleet"), "Must not include fleet");
+    assert.ok(!combined.includes("fuel"), "Must not include fuel");
+
+    // Must include postgres/serverless keywords
+    assert.ok(
+      combined.includes("postgres") ||
+      combined.includes("serverless") ||
+      combined.includes("branching") ||
+      combined.includes("scale-to-zero"),
+      "Must include postgres/serverless database keywords"
+    );
+  }
+});
+

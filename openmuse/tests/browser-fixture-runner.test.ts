@@ -22,7 +22,7 @@ test("fixture lifecycle releases its server when temporary profile creation fail
         [
           "--experimental-strip-types",
           "--test",
-          fileURLToPath(new URL("../apps/worker/tests/lifecycle.test.ts", import.meta.url)),
+          fileURLToPath(new URL("../apps/worker/tests/lifecycle.test.ts", import.meta.url).toString()),
         ],
         {
           env,
@@ -61,7 +61,7 @@ if (args[0] === "port" && args[2] === "8791") { process.stderr.write("fixture po
     await assert.rejects(
       promisify(execFile)(
         process.execPath,
-        [fileURLToPath(new URL("../apps/worker/tests/run-docker.mjs", import.meta.url))],
+        [fileURLToPath(new URL("../apps/worker/tests/run-docker.mjs", import.meta.url).toString())],
         {
           env: { ...process.env, PATH: directory, FIXTURE_RUNNER_LOG: log },
           timeout: 10_000,

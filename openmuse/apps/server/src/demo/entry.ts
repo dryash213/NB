@@ -7,7 +7,7 @@ import { intelligenceKeyRequiredMessage, required } from "../config.ts";
 import { createStore } from "../db.ts";
 import { createDemoModel, demoModel } from "./model.ts";
 
-const root = fileURLToPath(new URL("../../../../", import.meta.url));
+const root = fileURLToPath(new URL("../../../../", import.meta.url).toString());
 const intelligenceApiKey = required("CPK_INTELLIGENCE_API_KEY", intelligenceKeyRequiredMessage);
 const jevMode = process.env.DEMO_JEV_MODE ?? "sample";
 if (jevMode !== "sample" && jevMode !== "live")
@@ -69,7 +69,7 @@ const browser = process.env.DEMO_WORKER_URL
 // Start the normal API with an explicit environment: never copy real provider, Google, or DB keys.
 const api = spawn(
   process.execPath,
-  ["--import", import.meta.resolve("tsx"), fileURLToPath(new URL("../index.ts", import.meta.url))],
+  ["--import", import.meta.resolve("tsx"), fileURLToPath(new URL("../index.ts", import.meta.url).toString())],
   {
     cwd,
     stdio: "inherit",
@@ -120,7 +120,7 @@ const stop = () => {
     api.kill("SIGKILL");
     browser?.kill("SIGKILL");
   }, 10_000);
-  deadline.unref();
+  (deadline as any).unref();
 };
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);

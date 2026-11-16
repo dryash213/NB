@@ -21,5 +21,7 @@ __pycache__/
 apps/mobile/ios/
 apps/mobile/android/
 .DS_Store
+.openmuse-test/
+scratch/
 
 

@@ -30,11 +30,14 @@ The OpenMuse NextBillion Ad Agent platform is organized into a modular pipeline 
 │     PHASE 1: RESEARCH TOOLS     │   │      PHASE 2: CREATIVE IDEATION     │   │    PHASE 3 & 4: MONITORING    │
 │  `openmuse/.../ad-tools.ts`     │   │     `openmuse/.../ad-ideation.ts`   │   │  & PIPELINE ATTRIBUTION       │
 ├─────────────────────────────────┤   ├─────────────────────────────────────┤   ├───────────────────────────────┤
-│ • research_keywords             │   │ • generateCampaignAngles            │   │ • evaluateCampaignHealth      │
-│ • analyze_competitors           │   │ • generateHeadlinePool (<=30 chars) │   │ • Scheduled task runner       │
-│ • generate_ad_copy              │   │ • generateDescriptionPool (<=90 ch) │   │ • Search Query Report parser  │
-│ • evaluate_campaign_health      │   │ • composeRSAVariations (REST v17)   │   │ • Deanonymization adapter     │
-│                                 │   │ • ideate_campaign (Tool Hook)       │   │ • HubSpot CRM revenue sync    │
+│ • research_keywords             │   │ • plan_campaign_strategy (Sub-Dec.) │   │ • evaluateCampaignHealth      │
+│ • analyze_competitors           │   │ • generateCampaignAngles            │   │ • Scheduled task runner       │
+│ • generate_ad_copy              │   │ • generateHeadlinePool (<=30 chars) │   │ • Search Query Report parser  │
+│ • evaluate_campaign_health      │   │ • generateDescriptionPool (<=90 ch) │   │ • Negative keyword miner      │
+│                                 │   │ • composeRSAVariations (REST v17)   │   │ • Deanonymization adapter     │
+│                                 │   │ • generate_landing_page (LP Engine) │   │ • HubSpot CRM revenue sync    │
+│                                 │   │ • ideate_campaign (Tool Hook)       │   │                               │
+│                                 │   │ • <think> Deliberation Accordion    │   │                               │
 └─────────────────────────────────┘   └─────────────────────────────────────┘   └───────────────────────────────┘
                                                  │
                                                  ▼
@@ -305,3 +308,44 @@ ORDER BY metrics.cost_micros DESC
 - Live mutation engine utilizing Google Ads REST v17 API client with OAuth2 refresh tokens.
 - Transaction journal persisted in PGlite recording mutation ID, timestamp, actor, previous payload, and applied payload.
 - One-click rollback capability to restore previous budget levels or unpause replaced ads.
+
+---
+
+## 6. Phase 5 UX & Persistence Architecture (Completed & Verified)
+
+### 6.1 Desktop Viewport Scope Expansion
+- **Root Container**: Expanded `maxWidth` in `openmuse/apps/mobile/App.tsx` from 760px to 1200px on desktop viewports (`desktop ? 1200 : 760`).
+- **Chat Container**: In `openmuse/apps/mobile/src/chat.tsx`, assistant message bubbles and tool card wrappers are styled with `width: "100%", maxWidth: "100%"`, allowing complex comparative grids, metric badges, and interactive control bars to render across the full viewport width without horizontal truncation or artificial line wrapping.
+
+### 6.2 Interactive Sub-Decisioning Architecture (`campaign-strategy-card.tsx`)
+- **Component File**: `openmuse/apps/mobile/src/campaign-strategy-card.tsx`
+- **Design Philosophy**: Replaces "black-box one-shot generation" with active marketer steering.
+- **Components**:
+  1. **AI Recommended Angles**: Selectable angle cards displaying strategic rationale, projected CPC, and `★ RECOMMENDED` badges.
+  2. **Sub-Control Overrides**:
+     - *Target Persona*: Tech Leaders vs Fleet Operations.
+     - *Target Region*: IN (India), US (United States), EU (Europe), WW (Worldwide).
+     - *Competitor Target*: Google Maps Platform, Mapbox, HERE Technologies, Manual Spreadsheets.
+     - *CPC Ceiling*: $10, $15, $20, $25.
+  3. **Custom Freeform Prompt Input**: Allows marketers to type specific nuances, client constraints, or custom hooks.
+  4. **Dynamic Action Dispatch**: Dispatches targeted requests into OpenMuse chat context with a single click (`Generate Ads for this Angle`, `Generate Matching Landing Page`, `Mine Negative Waste`).
+
+### 6.3 Activity Screen Persistence & Human-in-the-Loop Coordination
+- **Persistence Helper**: `recordMarketingTask()` in `openmuse/apps/server/src/engine/conversation.ts`.
+- **Database Coordination**:
+  - `tasks` table: Stores multi-step progress steps, prompt, and execution summary. Enables OpenMuse's "All / In progress / Finished" filter tabs on the Activity screen.
+  - `actions` table: Stores `ActionProposal` with `kind: "marketing.review"` and status `"awaiting_review"`. Populates the "Needs review" section of Reviews & Receipts with full campaign metadata.
+  - `activity` table: Stores `ActivityEntry` items in the "Workspace timeline".
+- **Domain Schema Update**: Added `marketing.review` to `proposalSchema` in `openmuse/packages/domain/src/index.ts`.
+- **Workspace Bridge**: Added `marketing.review` handlers to `prepare()` and `execute()` in `openmuse/apps/server/src/workspace.ts`.
+- **Visual Receipt Renderer**: Added `MarketingReviewDetail` in `openmuse/apps/mobile/src/details.tsx` to render pending reviews with campaign name, critic scores, and quarantined negative keywords.
+
+### 6.4 Landing Page Messaging Generator (`ad-landing-page.ts`)
+- **Implementation File**: `openmuse/apps/server/src/ad-landing-page.ts`
+- **Tests**: `openmuse/tests/ad-landing-page.test.ts` (4 unit tests passing).
+- **Core Capabilities**:
+  - Synthesizes matching H1 hero headlines, subheads, primary CTAs, and secondary CTAs.
+  - Generates 4 enterprise trust proof signals (e.g., "$100M+ ARR enterprises", "Sub-100ms routing engine", "SOC 2 Type II").
+  - Formulates 3 value proposition pillars aligned with the chosen ad angle.
+  - Constructs head-to-head comparison tables against competitors (pricing, latency, route flexibility, offline support).
+  - Emits responsive HTML/Tailwind embed snippets with HubSpot forms configured for 500+ employee routing priority.

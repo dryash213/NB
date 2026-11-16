@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import {
   type ComputerState,
@@ -344,7 +345,7 @@ const sessionScript = [
 let filesScript: Promise<string> | undefined;
 // Source runs from apps/server/src; the built server runs from the repository root.
 const loadFilesScript = () =>
-  (filesScript ??= readFile(new URL("../../computer/files.py", import.meta.url), "utf8").catch(() =>
+  (filesScript ??= readFile(fileURLToPath(new URL("../../computer/files.py", import.meta.url).toString()), "utf8").catch(() =>
     readFile(resolve("apps/computer/files.py"), "utf8"),
   ));
 

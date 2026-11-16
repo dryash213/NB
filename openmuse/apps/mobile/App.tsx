@@ -293,7 +293,14 @@ function WorkspaceShell({
     <>
       <WorkspaceTools />
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={["top", "bottom"]}>
-        <View style={{ flex: 1, width: "100%", maxWidth: 760, alignSelf: "center" }}>
+        <View
+          style={{
+            flex: 1,
+            width: "100%",
+            maxWidth: desktop ? 1200 : 760,
+            alignSelf: "center",
+          }}
+        >
           <View
             style={{
               height: desktop ? 146 : 122,

@@ -404,7 +404,9 @@ test("worker recovery retries incomplete cleanup before recording failure", asyn
   assert.equal(JSON.parse(await readFile(journal, "utf8")).status, "failed");
 });
 
-test("worker recovery preserves downloads when metadata cannot be inspected", async (t) => {
+test("worker recovery preserves downloads when metadata cannot be inspected", {
+  skip: process.platform === "win32" && "symlink loops require elevated privileges on Windows",
+}, async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "openmuse-download-recovery-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const folder = join(directory, "downloads");

@@ -29,6 +29,250 @@ import {
 } from "lucide-react-native";
 import { Button, Card, colors, ErrorNotice, s } from "./ui";
 
+export interface ExtractedHeadline {
+  text: string;
+  position?: string;
+  pinnedField?: string;
+  char_count: number;
+  critic_score?: number;
+}
+
+export interface ExtractedDescription {
+  text: string;
+  position?: string;
+  pinnedField?: string;
+  char_count: number;
+}
+
+export interface ExtractedGoogleAdsCardData {
+  primaryKeyword: string;
+  icpPersona: string;
+  angles: any[];
+  activeAngle: any;
+  headlines: ExtractedHeadline[];
+  descriptions: ExtractedDescription[];
+  path1: string;
+  path2: string;
+  displayDomain: string;
+  serpUrl: string;
+  pinned1Headline: string;
+  pinned2Headline: string;
+  pinned3Headline: string;
+  pinned1Desc: string;
+  pinned2Desc: string;
+  sitelinks: string[];
+  avgCriticScore: number;
+  rewritesCount: number;
+  currentPayload: any;
+  targetLandingPage: string;
+}
+
+export function formatPersonaBadge(persona: string): string {
+  const p = (persona || "").toLowerCase();
+  if (
+    p.includes("tech") ||
+    p.includes("decision") ||
+    p.includes("cto") ||
+    p.includes("engineer") ||
+    p.includes("architect") ||
+    p.includes("developer")
+  ) {
+    return "Tech Leaders & Decision-Makers";
+  }
+  if (p.includes("fleet") || p.includes("logistics") || p.includes("dispatch")) {
+    return "Fleet Managers (Logistics)";
+  }
+  if (
+    p.includes("student") ||
+    p.includes("teacher") ||
+    p.includes("educat") ||
+    p.includes("cbse") ||
+    p.includes("school")
+  ) {
+    return "Students & Educators";
+  }
+  if (p.includes("growth") || p.includes("marketer") || p.includes("marketing")) {
+    return "Growth & Marketing Leaders";
+  }
+  return persona
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .slice(0, 32);
+}
+
+export function extractGoogleAdsCardData(
+  data: any,
+  selectedAngleIndex = 0
+): ExtractedGoogleAdsCardData {
+  const primaryKeyword = data?.primary_keyword || "route api";
+  const icpPersona = data?.icp_persona || "tech-leaders";
+  const angles = Array.isArray(data?.angles_generated) ? data.angles_generated : [];
+  const activeAngle = angles[selectedAngleIndex] || angles[0];
+  const multiStepTrace = data?.multi_step_trace;
+  const criticSummary = multiStepTrace?.adversarial_critic;
+  const avgCriticScore = criticSummary?.average_critic_score || 8.5;
+  const rewritesCount = criticSummary?.rewrites_triggered || 0;
+
+  const currentPayload = activeAngle?.google_ads_rsa_payload;
+  const rsaAd = currentPayload?.operations?.[0]?.create?.ad?.responsiveSearchAd;
+  const rsaFinalUrls = currentPayload?.operations?.[0]?.create?.ad?.finalUrls;
+  const criticEvaluations: any[] = activeAngle?.critic_evaluations || [];
+
+  // Extract headlines from RSA payload, falling back to legacy flat array
+  const rawHeadlines: any[] =
+    rsaAd?.headlines ||
+    activeAngle?.headlines ||
+    [];
+
+  const headlines: ExtractedHeadline[] = rawHeadlines.map((h: any) => {
+    const text = typeof h === "string" ? h : (h?.text || "");
+    const pinned = h?.pinnedField || h?.position;
+    const matchedEval = criticEvaluations.find((e: any) => e.headline === text);
+    const criticScore = h?.critic_score ?? matchedEval?.composite_score;
+    return {
+      text,
+      position: pinned,
+      pinnedField: pinned,
+      char_count: text.length,
+      critic_score: criticScore,
+    };
+  });
+
+  // Extract descriptions from RSA payload, falling back to legacy flat array
+  const rawDescriptions: any[] =
+    rsaAd?.descriptions ||
+    activeAngle?.descriptions ||
+    [];
+
+  const descriptions: ExtractedDescription[] = rawDescriptions.map((d: any) => {
+    const text = typeof d === "string" ? d : (d?.text || "");
+    const pinned = d?.pinnedField || d?.position;
+    return {
+      text,
+      position: pinned,
+      pinnedField: pinned,
+      char_count: text.length,
+    };
+  });
+
+  // Extract display paths dynamically from activeAngle.display_paths, rsaAd, or activeAngle
+  const path1 =
+    activeAngle?.display_paths?.path1 ||
+    rsaAd?.path1 ||
+    activeAngle?.path1 ||
+    "explore";
+  const path2 =
+    activeAngle?.display_paths?.path2 ||
+    rsaAd?.path2 ||
+    activeAngle?.path2 ||
+    "ad";
+
+  let displayDomain = "nextbillion.ai";
+  const targetUrl =
+    rsaFinalUrls?.[0] ||
+    data?.summary?.recommended_landing_page ||
+    data?.final_url;
+  if (targetUrl) {
+    try {
+      const urlObj = new URL(targetUrl.startsWith("http") ? targetUrl : `https://${targetUrl}`);
+      displayDomain = urlObj.hostname;
+    } catch {
+      displayDomain = targetUrl.replace(/^https?:\/\//, "").split("/")[0] || "nextbillion.ai";
+    }
+  }
+
+  const targetLandingPage =
+    data?.summary?.recommended_landing_page ||
+    rsaFinalUrls?.[0] ||
+    data?.final_url ||
+    `https://${displayDomain}/routing`;
+
+  // Live SERP preview items (prioritize pinned items, guaranteed distinct headlines)
+  const uniqueHeadlines = Array.from(new Set(headlines.map((h) => h.text.trim())));
+  const pinned1Headline =
+    headlines.find((h) => h.pinnedField === "HEADLINE_1" || h.position === "PINNED_1")?.text ||
+    uniqueHeadlines[0] ||
+    primaryKeyword;
+  const pinned2Headline =
+    headlines.find((h) => (h.pinnedField === "HEADLINE_2" || h.position === "PINNED_2") && h.text !== pinned1Headline)?.text ||
+    uniqueHeadlines.find((t) => t !== pinned1Headline) ||
+    "Verified Performance";
+  const pinned3Headline =
+    headlines.find((h) => (h.pinnedField === "HEADLINE_3" || h.position === "PINNED_3") && h.text !== pinned1Headline && h.text !== pinned2Headline)?.text ||
+    uniqueHeadlines.find((t) => t !== pinned1Headline && t !== pinned2Headline) ||
+    "Official Portal";
+
+  const pinned1Desc =
+    descriptions.find((d) => d.pinnedField === "DESCRIPTION_1" || d.position === "PINNED_1")?.text ||
+    descriptions[0]?.text ||
+    "Instant access, reliable SLA, and transparent pricing.";
+  const pinned2Desc =
+    descriptions.find((d) => d.pinnedField === "DESCRIPTION_2" || d.position === "PINNED_2")?.text ||
+    descriptions[1]?.text ||
+    "Explore feature highlights and get started today.";
+
+  // Dynamic Sitelink pills for Google Ads SERP preview:
+  // Derived from non-pinned headlines or domain-tailored highlights
+  const usedHeadlines = new Set(
+    [pinned1Headline, pinned2Headline, pinned3Headline].map((t) => t.toLowerCase())
+  );
+  const headlineSitelinks = headlines
+    .map((h) => h.text.trim())
+    .filter((t) => t.length > 0 && !usedHeadlines.has(t.toLowerCase()));
+
+  const domainLower = displayDomain.toLowerCase();
+  const kwLower = primaryKeyword.toLowerCase();
+  const isDb =
+    domainLower.includes("neon") ||
+    domainLower.includes("postgres") ||
+    domainLower.includes("sql") ||
+    kwLower.includes("postgres") ||
+    kwLower.includes("database") ||
+    kwLower.includes("serverless") ||
+    kwLower.includes("sql");
+  const isEdu =
+    domainLower.includes("papershaper") ||
+    kwLower.includes("cbse") ||
+    kwLower.includes("mock") ||
+    kwLower.includes("exam");
+
+  const defaultSitelinks = isDb
+    ? ["Instant DB Branching", "Sub-10ms Latency", "Zero Idle Bills", "100% Postgres Native"]
+    : isEdu
+    ? ["Instant CBSE Mocks", "Latest 2026 Pattern", "Detailed Answer Keys", "Chapter-wise Tests"]
+    : domainLower.includes("nextbillion") || kwLower.includes("route") || kwLower.includes("map")
+    ? ["Sub-100ms Matrix API", "70% Cost Reduction", "Interactive Route Playground", "99.99% Routing SLA"]
+    : ["Instant Setup", "Developer API Docs", "Transparent Pricing", "Start Free Today"];
+
+  const sitelinks =
+    headlineSitelinks.length >= 4
+      ? Array.from(new Set(headlineSitelinks)).slice(0, 4)
+      : Array.from(new Set([...headlineSitelinks, ...defaultSitelinks])).slice(0, 4);
+
+  return {
+    primaryKeyword,
+    icpPersona,
+    angles,
+    activeAngle,
+    headlines,
+    descriptions,
+    path1,
+    path2,
+    displayDomain,
+    serpUrl: `https://${displayDomain}/${path1}/${path2}`,
+    pinned1Headline,
+    pinned2Headline,
+    pinned3Headline,
+    pinned1Desc,
+    pinned2Desc,
+    sitelinks,
+    avgCriticScore,
+    rewritesCount,
+    currentPayload,
+    targetLandingPage,
+  };
+}
+
 interface GoogleAdsCampaignCardProps {
   result: unknown;
   loading?: boolean;
@@ -75,37 +319,29 @@ export function GoogleAdsCampaignCard({ result, loading }: GoogleAdsCampaignCard
     );
   }
 
-  const primaryKeyword = data.primary_keyword || "route api";
-  const icpPersona = data.icp_persona || "tech-leaders";
-  const angles = Array.isArray(data.angles_generated) ? data.angles_generated : [];
-  const activeAngle = angles[selectedAngleIndex] || angles[0];
+  const {
+    primaryKeyword,
+    icpPersona,
+    angles,
+    activeAngle,
+    headlines,
+    descriptions,
+    path1,
+    path2,
+    displayDomain,
+    pinned1Headline,
+    pinned2Headline,
+    pinned3Headline,
+    pinned1Desc,
+    pinned2Desc,
+    sitelinks,
+    avgCriticScore,
+    rewritesCount,
+    currentPayload,
+    targetLandingPage,
+  } = extractGoogleAdsCardData(data, selectedAngleIndex);
+
   const multiStepTrace = data.multi_step_trace;
-  const criticSummary = multiStepTrace?.adversarial_critic;
-  const avgCriticScore = criticSummary?.average_critic_score || 8.5;
-  const rewritesCount = criticSummary?.rewrites_triggered || 0;
-
-  const currentPayload = activeAngle?.google_ads_rsa_payload;
-  const headlines = activeAngle?.headlines || [];
-  const descriptions = activeAngle?.descriptions || [];
-
-  // Live SERP preview items
-  const pinned1Headline = headlines.find((h: any) => h.position === "PINNED_1")?.text || primaryKeyword;
-  const pinned2Headline =
-    headlines.find((h: any) => h.position === "PINNED_2")?.text ||
-    headlines[1]?.text ||
-    "Google Maps Alternative";
-  const pinned3Headline =
-    headlines.find((h: any) => h.position === "PINNED_3")?.text ||
-    headlines[2]?.text ||
-    "Enterprise Routing Engine";
-
-  const pinned1Desc =
-    descriptions.find((d: any) => d.position === "PINNED_1")?.text ||
-    descriptions[0]?.text ||
-    "Predictable pricing up to 70% lower than Google Maps Platform.";
-  const pinned2Desc =
-    descriptions[1]?.text ||
-    "Deploy custom map layers, vehicle profiles, and high-throughput routing SDK instantly.";
 
   const handleCopyJson = () => {
     const payloadStr = JSON.stringify(currentPayload || data, null, 2);
@@ -137,7 +373,7 @@ export function GoogleAdsCampaignCard({ result, loading }: GoogleAdsCampaignCard
         <View style={[s.row, { gap: 6 }]}>
           <View style={[styles.badge, { backgroundColor: "#EBF5FF" }]}>
             <Text style={[styles.badgeText, { color: "#0043CE" }]}>
-              {icpPersona === "tech-leaders" ? "Tech Leaders (API/SDK)" : "Fleet Managers (Logistics)"}
+              {formatPersonaBadge(icpPersona)}
             </Text>
           </View>
           <View style={[styles.badge, { backgroundColor: "#DEFBE6" }]}>
@@ -162,7 +398,7 @@ export function GoogleAdsCampaignCard({ result, loading }: GoogleAdsCampaignCard
             </View>
             <Globe size={13} color="#4D5156" />
             <Text style={styles.serpUrl}>
-              https://nextbillion.ai/{activeAngle?.path1 || "routing"}/{activeAngle?.path2 || "api"}
+              https://{displayDomain}/{path1}/{path2}
             </Text>
           </View>
           <Text style={[s.small, { color: "#70757A" }]}>Google Search SERP Preview</Text>
@@ -178,18 +414,11 @@ export function GoogleAdsCampaignCard({ result, loading }: GoogleAdsCampaignCard
         </Text>
 
         <View style={[s.row, { gap: 8, marginTop: 8, flexWrap: "wrap" }]}>
-          <View style={styles.sitelinkPill}>
-            <Text style={styles.sitelinkText}>Sub-100ms Matrix API</Text>
-          </View>
-          <View style={styles.sitelinkPill}>
-            <Text style={styles.sitelinkText}>70% Cost Reduction</Text>
-          </View>
-          <View style={styles.sitelinkPill}>
-            <Text style={styles.sitelinkText}>Interactive Route Playground</Text>
-          </View>
-          <View style={styles.sitelinkPill}>
-            <Text style={styles.sitelinkText}>99.99% Routing SLA</Text>
-          </View>
+          {sitelinks.map((link, idx) => (
+            <View key={idx} style={styles.sitelinkPill}>
+              <Text style={styles.sitelinkText}>{link}</Text>
+            </View>
+          ))}
         </View>
       </View>
 
@@ -217,7 +446,7 @@ export function GoogleAdsCampaignCard({ result, loading }: GoogleAdsCampaignCard
                       active && { color: "#FFFFFF", fontWeight: "700" },
                     ]}
                   >
-                    Angle {idx + 1}: {ang.strategic_angle || ang.angle_id}
+                    Angle {idx + 1}: {ang.angle_title || ang.name || ang.strategic_angle || ang.angle_id}
                   </Text>
                 </Pressable>
               );
@@ -248,15 +477,16 @@ export function GoogleAdsCampaignCard({ result, loading }: GoogleAdsCampaignCard
             </Text>
           </View>
           <View style={styles.assetList}>
-            {headlines.slice(0, 7).map((h: any, i: number) => {
-              const isPinned = h.position && h.position !== "NONE";
+            {headlines.map((h: any, i: number) => {
+              const isPinned = !!h.pinnedField || (!!h.position && h.position !== "NONE");
+              const badgeLabel = h.pinnedField || h.position;
               return (
                 <View key={i} style={[s.between, styles.assetRow]}>
                   <View style={[s.row, { gap: 8, flex: 1 }]}>
                     {isPinned ? (
                       <View style={[styles.posBadge, { backgroundColor: "#E8DAFF" }]}>
                         <Text style={[styles.posBadgeText, { color: "#6929C4" }]}>
-                          {h.position}
+                          {badgeLabel}
                         </Text>
                       </View>
                     ) : (
@@ -269,7 +499,7 @@ export function GoogleAdsCampaignCard({ result, loading }: GoogleAdsCampaignCard
                     </Text>
                   </View>
                   <View style={[s.row, { gap: 6 }]}>
-                    {h.critic_score && (
+                    {h.critic_score != null && (
                       <Text style={[s.small, { color: "#198038", fontWeight: "600" }]}>
                         ★ {h.critic_score}
                       </Text>
@@ -295,21 +525,39 @@ export function GoogleAdsCampaignCard({ result, loading }: GoogleAdsCampaignCard
             </Text>
           </View>
           <View style={styles.assetList}>
-            {descriptions.map((d: any, i: number) => (
-              <View key={i} style={[styles.assetRow, { flexDirection: "column", gap: 4 }]}>
-                <View style={[s.between]}>
-                  <View style={[styles.posBadge, { backgroundColor: d.position === "PINNED_1" ? "#E8DAFF" : "#F4F4F4" }]}>
-                    <Text style={[styles.posBadgeText, { color: d.position === "PINNED_1" ? "#6929C4" : "#525252" }]}>
-                      {d.position || "ROTATED"}
-                    </Text>
+            {descriptions.map((d: any, i: number) => {
+              const isPinned =
+                d.pinnedField === "DESCRIPTION_1" ||
+                d.position === "PINNED_1" ||
+                d.pinnedField === "DESCRIPTION_2" ||
+                d.position === "PINNED_2";
+              const badgeLabel = d.pinnedField || d.position || "ROTATED";
+              return (
+                <View key={i} style={[styles.assetRow, { flexDirection: "column", gap: 4 }]}>
+                  <View style={[s.between]}>
+                    <View
+                      style={[
+                        styles.posBadge,
+                        { backgroundColor: isPinned ? "#E8DAFF" : "#F4F4F4" },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.posBadgeText,
+                          { color: isPinned ? "#6929C4" : "#525252" },
+                        ]}
+                      >
+                        {badgeLabel}
+                      </Text>
+                    </View>
+                    <View style={styles.charCountBadge}>
+                      <Text style={styles.charCountText}>{d.char_count || d.text.length}/90</Text>
+                    </View>
                   </View>
-                  <View style={styles.charCountBadge}>
-                    <Text style={styles.charCountText}>{d.char_count || d.text.length}/90</Text>
-                  </View>
+                  <Text style={[s.text, { fontSize: 13, lineHeight: 19 }]}>{d.text}</Text>
                 </View>
-                <Text style={[s.text, { fontSize: 13, lineHeight: 19 }]}>{d.text}</Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </View>
       </View>
@@ -338,7 +586,7 @@ export function GoogleAdsCampaignCard({ result, loading }: GoogleAdsCampaignCard
           <View style={styles.traceItem}>
             <Text style={styles.traceLabel}>Target Landing Page</Text>
             <Text style={styles.traceValue} numberOfLines={1}>
-              {data.summary?.recommended_landing_page || "https://nextbillion.ai/routing"}
+              {targetLandingPage}
             </Text>
           </View>
         </View>

@@ -22,6 +22,7 @@ import {
 } from "react-native";
 import { z } from "zod";
 import { A2UIToolCard } from "./a2ui-tool-card";
+import { CampaignStrategyCard } from "./campaign-strategy-card";
 import { GoogleAdsCampaignCard, NegativeKeywordAuditCard } from "./google-ads-card";
 import { ArtifactCard } from "./agent-ui";
 import { useAgentWorkspace } from "./agent-workspace";
@@ -159,12 +160,46 @@ export function WorkspaceTools() {
     },
   });
   useRenderTool({
+    name: "plan_campaign_strategy",
+    description: "Display strategic campaign planning, progress steps, and interactive angle approval choices",
+    parameters: displayParameters,
+    render: ({ args, result, status }) => (
+      <CampaignStrategyCard args={args} result={result} loading={status !== "complete"} />
+    ),
+  });
+  useRenderTool({
     name: "ideate_campaign",
     description: "Display Google Ads campaign angles, headlines, and RSA variations",
     parameters: displayParameters,
     render: ({ args, result, status }) => (
       <GoogleAdsCampaignCard result={result} loading={status !== "complete"} />
     ),
+  });
+  useRenderTool({
+    name: "generate_landing_page",
+    description: "Display matching landing page hero sections, value proposition blocks, and comparison grids",
+    parameters: displayParameters,
+    render: ({ args, result, status }) => {
+      let resObj: any = result;
+      if (typeof resObj === "string") {
+        try {
+          resObj = JSON.parse(resObj);
+        } catch {
+          // ignore
+        }
+      }
+      const cardData = resObj?.a2ui_card_payload || resObj?.a2ui;
+      if (cardData) {
+        return <A2UIToolCard data={cardData} loading={status !== "complete"} />;
+      }
+      return (
+        <ServerToolCard
+          name="Landing Page Generator"
+          result={result}
+          loading={status !== "complete"}
+        />
+      );
+    },
   });
   useRenderTool({
     name: "mine_negative_keywords",
@@ -179,10 +214,14 @@ export function WorkspaceTools() {
     description: "Display full-funnel marketing attribution, deanonymized account tiers, and match type promotions",
     parameters: displayParameters,
     render: ({ args, result, status }) => {
-      const resObj =
-        typeof result === "object" && result !== null
-          ? (result as Record<string, unknown>)
-          : undefined;
+      let resObj: any = result;
+      if (typeof resObj === "string") {
+        try {
+          resObj = JSON.parse(resObj);
+        } catch {
+          // ignore
+        }
+      }
       const cardData = resObj?.a2ui_card_payload || resObj?.a2ui;
       if (cardData) {
         return <A2UIToolCard data={cardData} loading={status !== "complete"} />;
@@ -641,8 +680,8 @@ export function ChatScreen({
                 key={message.id}
                 style={{
                   alignSelf: user ? "flex-end" : "flex-start",
-                  maxWidth: user ? "85%" : "95%",
-                  width: toolCalls.length ? "95%" : undefined,
+                  maxWidth: user ? "85%" : "100%",
+                  width: user ? undefined : "100%",
                   gap: 8,
                 }}
               >
@@ -655,6 +694,9 @@ export function ChatScreen({
                       borderBottomRightRadius: user ? 7 : 22,
                       borderBottomLeftRadius: user ? 22 : 7,
                       backgroundColor: user ? colors.blue : "#EEEEF0",
+                      alignSelf: user ? "flex-end" : "flex-start",
+                      maxWidth: user ? "85%" : "100%",
+                      width: user ? undefined : "100%",
                     }}
                   >
                     {user ? (
@@ -705,7 +747,9 @@ export function ChatScreen({
                           candidate.role === "tool" && candidate.toolCallId === toolCall.id,
                       );
                       return (
-                        <View key={toolCall.id}>{renderToolCall({ toolCall, toolMessage })}</View>
+                        <View key={toolCall.id} style={{ width: "100%" }}>
+                          {renderToolCall({ toolCall, toolMessage })}
+                        </View>
                       );
                     })}
                   </BrowserRunContext>

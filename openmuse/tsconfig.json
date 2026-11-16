@@ -10,7 +10,8 @@
     "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "types": ["node"],
-    "lib": ["ES2023", "DOM"]
+    "lib": ["ES2023", "DOM"],
+    "jsx": "react-jsx"
   },
   "include": ["apps/server/**/*.ts", "packages/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "apps/mobile", "apps/worker"]
